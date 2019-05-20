@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+        <style type="text/css">
+            * {
+                margin: 0;
+                padding: 0;
+            }
+    
+            canvas {
+                border: 1px solid #d3d3d3;
+            }
+        </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <script src="http://libs.baidu.com/jquery/1.10.2/jquery.min.js"></script>
+    
+    <title>Document</title>
+    <script>
+        $(function(){
+
+            function requestText(){
+                host = "ws://172.20.10.4:8000/webChat"
+                websocket = new WebSocket(host)
+                websocket.onopen = function(evt){}      // 建立连接
+                websocket.onmessage = function(evt){    // 获取服务器返回的信息
+                    Word = $.parseJSON(evt.data)  
+                    if(Word['function']=='num'){//显示识别好的数字
+                        alert(Word['message'])
+                    }
+                }
+                websocket.onerror = function(evt){}//异常处理
+            }
+
+            requestText()   // 开始 websocket
+
+            $("#btn").click(function(){
+                sendText()//发送消息
+            })            
+            function sendText(){    // 向服务器发送信息
+                var saveone = document.getElementById("myCanvas");
+                var url = saveone.toDataURL("image/png");
+                imges = new Image();
+                imges.src = url;
+                var smaller,smallcontent;//新建画板用于压缩图片
+                smaller = document.getElementById('1');
+                smaller.height = 28;//设置画板大小  
+                smaller.width = 28;
+                smallcontent = smaller.getContext('2d');
+                imges.onload = function () {
+                smallcontent.drawImage(imges,0,0,28,28);
+                var img=smallcontent.getImageData(0,0,28,28)//图片的转imagedata对象,获取其rgba数组数据
+                websocket.send(img["data"].toString())//发送图片字符串数组
+                }
+            }
+        })
+
+        
+    </script>
+</head>
+<body>
+        <canvas id="myCanvas" ></canvas>
+        <div>
+            <button onclick="clean();">清 空</button>
+            <button id="btn" >识别图片</button>
+        </div>
+        <canvas id="1"></canvas>
+    <script>
+            var canvas, board;
+            canvas = document.getElementById('myCanvas');
+            canvas.height = 400;//设置画板大小
+            canvas.width = 400;
+            board = canvas.getContext('2d');
+
+            board.beginPath();
+            board.lineWidth = 17; //设置画笔粗细
+            board.strokeStyle = "#0000ff";
+            board.lineCap="round";
+            board.lineJoin = "round"; //设置画笔轨迹基于圆点拼接
+
+            var se;//依次记录三个点用于绘制赛贝尔曲线
+            var xy;
+            var ab;
+
+            var mousePress = false;//判断是否开始触摸
+            var last = null;//判断是否结束触摸
+        
+            function beginDraw(event) {//开始画图
+                mousePress = true;
+                se=xy=ab=GetPos(event);//三个点初始化
+            }
+            function endDraw(event) {//结束画图
+                mousePress = false;
+                event.preventDefault();//该方法将通知 Web 浏览器不要执行与事件关联的默认动作
+                last = null;
+            }
+            function drawing(event) {
+                event.preventDefault();//该方法将通知 Web 浏览器不要执行与事件关联的默认动作
+                if (!mousePress) return;
+
+                se=xy;//更新三个点坐标用于绘制赛贝尔曲线
+                xy=ab;
+                ab = GetPos(event);
+                if (last != null) {//移动绘图
+                    board.beginPath();
+                    board.moveTo(se.x, se.y);
+                    board.quadraticCurveTo(xy.x, xy.y,ab.x,ab.y);//二次贝塞尔曲线作图
+                    board.stro上keStyle="black";
+                    board.stroke();
+                }
+                last = xy;
+            }
+            function GetPos(event) {//获得当前触摸点位置
+                var isTouch = event.type.indexOf('touch') >= 0 ? true : false;
+                var x = isTouch ? event.touches[0].pageX : event.offsetX + event.target.offsetLeft;
+                var y = isTouch ? event.touches[0].pageY : event.offsetY + event.target.offsetTop;
+                return { x: x, y: y };
+            }
+            
+            function clean() {//清空画板，重设初始状态
+                board.clearRect(0, 0, canvas.width, canvas.height);
+
+                board.beginPath();
+                board.lineWidth = 17; //设置画笔粗细
+                board.strokeStyle = "#0000ff";
+                board.lineCap="round";
+                board.lineJoin = "round"; //设置画笔轨迹基于圆点拼接
+            }
+        
+            canvas.onmousedown = beginDraw;//设置状态
+            canvas.onmousemove = drawing;
+            canvas.onmouseup = endDraw;
+            canvas.addEventListener('touchstart', beginDraw, false);//添加监听器
+            canvas.addEventListener('touchmove', drawing, false);
+            canvas.addEventListener('touchend', endDraw, false);
+            // canvas.addEventListener('mousedown', beginDraw, false);//添加监听器
+            // canvas.addEventListener('mousemove', drawing, false);
+            // canvas.addEventListener('mouseleave', endDraw, false);
+        </script>
+</body>
+</html>
